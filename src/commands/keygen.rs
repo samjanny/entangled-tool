@@ -5,9 +5,10 @@
 //! - `runtime`: prints the public key (declared in the manifest canary).
 //! - `origin`: prints the public key and the derived Tor v3 onion address.
 //!
-//! The seed is printed as hex so the publisher can store it offline; the tool
-//! never persists it. A fresh seed is drawn from OS entropy unless `--seed-hex`
-//! supplies a deterministic one.
+//! The seed is the 32-byte Ed25519 secret from which the signing key is
+//! derived (its canonical private-key form). It is printed as hex so the
+//! publisher can store it offline; the tool never persists it. A fresh seed is
+//! drawn from OS entropy unless `--seed-file` or `--seed-hex` supplies one.
 
 use entangled_core::crypto::{
     derive_pip, OriginSigningKey, PublisherSigningKey, RuntimeSigningKey,
@@ -26,7 +27,8 @@ pub fn run(args: KeygenArgs) -> Result<(), Error> {
     )?;
 
     eprintln!(
-        "warning: the seed below is secret key material. Store it offline, and \
+        "warning: the seed below is the private key in its canonical 32-byte \
+         form; anyone holding it can sign as this key. Store it offline, and \
          clear it from terminal scrollback and shell history."
     );
     println!("seed_hex: {}", &*seed_to_hex(&seed));
