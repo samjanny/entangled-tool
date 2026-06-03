@@ -19,7 +19,11 @@ use crate::commands::{resolve_seed, seed_to_hex, Error};
 
 pub fn run(args: KeygenArgs) -> Result<(), Error> {
     // A file or inline hex if supplied; otherwise fresh OS entropy.
-    let seed = resolve_seed(args.seed_file.as_deref(), args.seed_hex.as_deref(), true)?;
+    let seed = resolve_seed(
+        args.seed_file.as_deref(),
+        args.seed_hex.as_ref().map(|s| s.reveal()),
+        true,
+    )?;
 
     eprintln!(
         "warning: the seed below is secret key material. Store it offline, and \

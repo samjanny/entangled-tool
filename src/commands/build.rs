@@ -23,7 +23,7 @@ pub fn run(args: BuildArgs) -> Result<(), Error> {
     // A signing key is mandatory for build; no fresh-entropy fallback.
     let seed = resolve_seed(
         args.key_seed_file.as_deref(),
-        args.key_seed_hex.as_deref(),
+        args.key_seed_hex.as_ref().map(|s| s.reveal()),
         false,
     )?;
 

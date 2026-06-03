@@ -4,7 +4,38 @@
 //! `keygen` (key ceremony), `build` (construct and sign documents),
 //! `verify` (run the validation pipeline), and `init` (scaffold a site).
 
+use std::str::FromStr;
+
 use clap::{Parser, Subcommand};
+
+/// A secret hex seed supplied on the command line. Wraps the value so a
+/// `Debug` of the args (a stray `dbg!`, a tracing/log line) never prints the
+/// seed: the `Debug` impl is redacted. Read the underlying value with
+/// [`SecretHex::reveal`] only where it is actually needed.
+#[derive(Clone)]
+pub struct SecretHex(String);
+
+impl SecretHex {
+    /// The raw hex string. Named to make call sites that expose the secret
+    /// obvious.
+    pub fn reveal(&self) -> &str {
+        &self.0
+    }
+}
+
+impl FromStr for SecretHex {
+    type Err = std::convert::Infallible;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(SecretHex(s.to_owned()))
+    }
+}
+
+impl std::fmt::Debug for SecretHex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("SecretHex(***)")
+    }
+}
 
 /// Publisher tooling for the Entangled v1.0 protocol.
 #[derive(Debug, Parser)]
@@ -58,7 +89,7 @@ pub struct KeygenArgs {
     /// process argument list (visible via `ps` / `/proc`) and shell history;
     /// prefer --seed-file for real key material.
     #[arg(long, conflicts_with = "seed_file")]
-    pub seed_hex: Option<String>,
+    pub seed_hex: Option<SecretHex>,
 }
 
 /// Which document kind to build.
@@ -89,7 +120,7 @@ pub struct BuildArgs {
     /// `ps` / `/proc` and shell history; prefer --key-seed-file for real key
     /// material. Exactly one of --key-seed-file or --key-seed-hex is required.
     #[arg(long, conflicts_with = "key_seed_file")]
-    pub key_seed_hex: Option<String>,
+    pub key_seed_hex: Option<SecretHex>,
 
     /// Wall-clock time for the manifest clock-skew check, RFC 3339
     /// (YYYY-MM-DDTHH:MM:SSZ). Required when building a manifest; ignored for
@@ -130,4 +161,39 @@ pub struct InitArgs {
     /// Directory to scaffold the new site into.
     #[arg(long, default_value = ".")]
     pub dir: std::path::PathBuf,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    const SEED: &str = "454e54414e474c45442d76312e302d6f726967696e2d74657374303030303100";
+
+    #[test]
+    fn secret_hex_debug_is_redacted() {
+        let s = SecretHex::from_str(SEED).unwrap();
+        let shown = format!("{s:?}");
+        assert!(!shown.contains(SEED), "Debug leaked the seed: {shown}");
+        assert_eq!(shown, "SecretHex(***)");
+    }
+
+    #[test]
+    fn args_debug_does_not_leak_seed() {
+        // A Debug of the whole args struct (a stray dbg!, a log line) must not
+        // print the seed.
+        let args = BuildArgs {
+            kind: DocKind::Manifest,
+            input: std::path::PathBuf::from("m.json"),
+            key_seed_file: None,
+            key_seed_hex: Some(SecretHex::from_str(SEED).unwrap()),
+            now: None,
+        };
+        assert!(!format!("{args:?}").contains(SEED));
+    }
+
+    #[test]
+    fn secret_hex_reveal_returns_the_value() {
+        assert_eq!(SecretHex::from_str(SEED).unwrap().reveal(), SEED);
+    }
 }
