@@ -53,7 +53,9 @@ entangled-tool build content  --input post.unsigned.json     --key-seed-file run
 
 ## Handling key seeds
 
-Seeds are 32-byte Ed25519 private key material. Prefer `--seed-file` / `--key-seed-file` over the inline `--seed-hex` / `--key-seed-hex`: a value passed on the command line appears in the process argument list (visible to other processes via `ps` and `/proc/<pid>/cmdline`) and in your shell history, whereas a file path does not expose the secret itself. Keep seed files with restrictive permissions (e.g. `chmod 600`). The tool zeroes seed material from its own memory after use; `keygen` prints a fresh seed to stdout for you to store, with a reminder on stderr.
+A seed is the 32-byte Ed25519 secret from which a signing key is derived (RFC 8032: the key's scalar comes from SHA-512 of the seed). It is not the expanded signing scalar itself, but it is the canonical private-key form: the mapping is deterministic and one-to-one, so anyone who holds the seed can reproduce the signing key and sign on your behalf. Treat it exactly as a private key.
+
+Prefer `--seed-file` / `--key-seed-file` over the inline `--seed-hex` / `--key-seed-hex`: a value passed on the command line appears in the process argument list (visible to other processes via `ps` and `/proc/<pid>/cmdline`) and in your shell history, whereas a file path does not expose the secret itself. Keep seed files with restrictive permissions (e.g. `chmod 600`). The tool zeroes seed bytes from its own memory after use; `keygen` prints a fresh seed to stdout for you to store, with a reminder on stderr.
 
 ### `init [--dir <path>]`
 

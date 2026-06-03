@@ -87,7 +87,7 @@ pub struct KeygenArgs {
     /// Use this 32-byte seed (64 hex chars) inline. Deterministic, for
     /// reproducible ceremonies and tests. WARNING: the seed appears in the
     /// process argument list (visible via `ps` / `/proc`) and shell history;
-    /// prefer --seed-file for real key material.
+    /// prefer --seed-file for a real key.
     #[arg(long, conflicts_with = "seed_file")]
     pub seed_hex: Option<SecretHex>,
 }
