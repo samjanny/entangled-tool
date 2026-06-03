@@ -27,6 +27,10 @@ pub(crate) fn seed_from_hex(hex: &str) -> Result<Seed, Error> {
     if hex.len() != 64 {
         return Err(format!("seed must be 64 hex characters, got {}", hex.len()).into());
     }
+    // Require the canonical lowercase form so one seed has one representation.
+    if hex.chars().any(|c| c.is_ascii_uppercase()) {
+        return Err("seed hex must be lowercase".into());
+    }
     let mut out = Zeroizing::new([0u8; 32]);
     for (i, byte) in out.iter_mut().enumerate() {
         let pair = &hex[i * 2..i * 2 + 2];
