@@ -15,12 +15,17 @@ use entangled_core::document::{
 use entangled_core::types::timestamp::EntangledTimestamp;
 
 use crate::cli::{BuildArgs, DocKind};
-use crate::commands::{seed_from_hex, Error};
+use crate::commands::{resolve_seed, Error};
 
 pub fn run(args: BuildArgs) -> Result<(), Error> {
     let raw = std::fs::read(&args.input)
         .map_err(|e| format!("cannot read {}: {e}", args.input.display()))?;
-    let seed = seed_from_hex(&args.key_seed_hex)?;
+    // A signing key is mandatory for build; no fresh-entropy fallback.
+    let seed = resolve_seed(
+        args.key_seed_file.as_deref(),
+        args.key_seed_hex.as_deref(),
+        false,
+    )?;
 
     let signed_bytes = match args.kind {
         DocKind::Manifest => {

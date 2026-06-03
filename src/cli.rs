@@ -47,9 +47,17 @@ pub struct KeygenArgs {
     #[arg(value_enum)]
     pub role: KeyRole,
 
-    /// Use this 32-byte seed (64 hex chars) instead of fresh OS entropy.
-    /// Deterministic; intended for reproducible ceremonies and tests.
+    /// Read the 32-byte seed (64 hex chars) from this file instead of drawing
+    /// fresh OS entropy. Preferred over --seed-hex for real keys: the secret
+    /// stays out of the process argument list and shell history.
     #[arg(long)]
+    pub seed_file: Option<std::path::PathBuf>,
+
+    /// Use this 32-byte seed (64 hex chars) inline. Deterministic, for
+    /// reproducible ceremonies and tests. WARNING: the seed appears in the
+    /// process argument list (visible via `ps` / `/proc`) and shell history;
+    /// prefer --seed-file for real key material.
+    #[arg(long, conflicts_with = "seed_file")]
     pub seed_hex: Option<String>,
 }
 
@@ -71,10 +79,17 @@ pub struct BuildArgs {
     #[arg(long)]
     pub input: std::path::PathBuf,
 
-    /// Path to the signing key seed (64 hex chars). Publisher key for a
-    /// manifest, runtime key for content and transactions.
+    /// Read the signing seed (64 hex chars) from this file. Preferred for real
+    /// keys: the secret stays out of the process argument list and shell
+    /// history. Publisher key for a manifest, runtime key otherwise.
     #[arg(long)]
-    pub key_seed_hex: String,
+    pub key_seed_file: Option<std::path::PathBuf>,
+
+    /// Provide the signing seed (64 hex chars) inline. WARNING: visible via
+    /// `ps` / `/proc` and shell history; prefer --key-seed-file for real key
+    /// material. Exactly one of --key-seed-file or --key-seed-hex is required.
+    #[arg(long, conflicts_with = "key_seed_file")]
+    pub key_seed_hex: Option<String>,
 
     /// Wall-clock time for the manifest clock-skew check, RFC 3339
     /// (YYYY-MM-DDTHH:MM:SSZ). Required when building a manifest; ignored for
