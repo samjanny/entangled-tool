@@ -7,7 +7,14 @@ This directory is a runnable example of authoring a content document with
   maps (headings, marks, a list, a code block, a quote, links, an image, a
   divider);
 - `assets/photo.png` - a 16x16 PNG the post references, so the image block's
-  hash and dimensions are read from a real file.
+  hash and dimensions are read from a real file;
+- `post.unsigned.json` - the unsigned content document `content` produces from
+  `post.md`, checked in as a reference of the output;
+- `post.json` - that document signed with `build content`, also checked in as a
+  reference. It is signed with the public test runtime seed from the spec
+  corpus (`ENTANGLED-v1.0-runtime-test0001`), not a real key; do not reuse it.
+  Regenerating with the flow below reproduces these two files byte for byte
+  (the conversion and signature are deterministic).
 
 ## The full flow
 
