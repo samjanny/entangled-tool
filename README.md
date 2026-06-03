@@ -1,7 +1,7 @@
 # entangled-tool
 
 [![CI](https://github.com/samjanny/entangled-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/samjanny/entangled-tool/actions/workflows/ci.yml)
-[![Version](https://img.shields.io/badge/version-0.3.0-blue)](https://github.com/samjanny/entangled-tool/releases)
+[![Version](https://img.shields.io/badge/version-0.3.1-blue)](https://github.com/samjanny/entangled-tool/releases)
 [![Spec](https://img.shields.io/badge/spec-v1.0--rc.48-blue)](https://github.com/samjanny/entangled)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-orange)](Cargo.toml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
