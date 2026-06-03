@@ -19,7 +19,18 @@ pub fn run(args: ContentArgs) -> Result<(), Error> {
     let source = std::fs::read_to_string(&args.markdown)
         .map_err(|e| format!("cannot read {}: {e}", args.markdown.display()))?;
 
-    let blocks = markdown::to_blocks(&source)?;
+    // Image same-site paths resolve against the Markdown file's directory
+    // unless --assets-dir overrides it.
+    let assets_base = match args.assets_dir.as_deref() {
+        Some(dir) => dir.to_path_buf(),
+        None => args
+            .markdown
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_default(),
+    };
+
+    let blocks = markdown::to_blocks(&source, &assets_base)?;
 
     let path = EntangledPath::try_from(args.path.as_str())
         .map_err(|e| format!("--path is not a valid content path: {e}"))?;
