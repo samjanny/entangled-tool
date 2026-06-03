@@ -75,6 +75,12 @@ pub struct BuildArgs {
     /// manifest, runtime key for content and transactions.
     #[arg(long)]
     pub key_seed_hex: String,
+
+    /// Wall-clock time for the manifest clock-skew check, RFC 3339
+    /// (YYYY-MM-DDTHH:MM:SSZ). Required when building a manifest; ignored for
+    /// content and transactions.
+    #[arg(long)]
+    pub now: Option<String>,
 }
 
 #[derive(Debug, clap::Args)]
