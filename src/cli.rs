@@ -171,7 +171,7 @@ pub struct VerifyArgs {
 
     /// Verified-time reference for the canary and origin-expiry checks,
     /// RFC 3339 (YYYY-MM-DDTHH:MM:SSZ). A real client supplies its trusted
-    /// wall clock. Defaults to the corpus clock if omitted.
+    /// wall clock. Defaults to the current system UTC clock if omitted.
     #[arg(long)]
     pub now: Option<String>,
 

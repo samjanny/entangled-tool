@@ -6,12 +6,12 @@
 //! 9b). The stages that need out-of-band context run only when that context is
 //! supplied: `--fetched-onion` for origin binding and `--content-index` for the
 //! content index. A skipped stage is reported, never silently passed. A reject
-//! prints the diagnostic code, stage, and message and stops at the first
-//! failing stage.
+//! prints the diagnostic code, stage, and message, stops at the first failing
+//! stage, and makes the process exit non-zero.
 //!
-//! Content and transaction documents are verified through signature only here;
-//! their later binding checks need the fetch path / submit body, which a future
-//! revision will accept.
+//! Content and transaction documents are verified against the runtime key the
+//! manifest authorizes, supplied with `--expected-runtime-pubkey`; their
+//! later binding checks (fetch path / submit body) are not yet wired here.
 
 use entangled_core::document::{
     parse_and_verify_content, parse_and_verify_manifest, parse_and_verify_transaction,
@@ -22,17 +22,12 @@ use entangled_core::types::timestamp::EntangledTimestamp;
 use entangled_core::validation::Diagnostic;
 
 use crate::cli::VerifyArgs;
-use crate::commands::Error;
+use crate::commands::{Error, Outcome};
 
-/// The corpus clock, used as the default verified-time reference when `--now`
-/// is omitted so the common case (verifying a corpus document) just works.
-const DEFAULT_NOW: &str = "2026-05-07T00:01:00Z";
-
-pub fn run(args: VerifyArgs) -> Result<(), Error> {
+pub fn run(args: VerifyArgs) -> Result<Outcome, Error> {
     let bytes = std::fs::read(&args.input)
         .map_err(|e| format!("cannot read {}: {e}", args.input.display()))?;
-    let now = EntangledTimestamp::try_from(args.now.as_deref().unwrap_or(DEFAULT_NOW))
-        .map_err(|e| format!("--now is not a valid RFC 3339 timestamp: {e}"))?;
+    let now = resolve_now(args.now.as_deref())?;
 
     // Discriminate the document kind cheaply from the wire bytes so the runner
     // can drive the right pipeline. The core parser re-checks this in Stage 4.
@@ -45,7 +40,49 @@ pub fn run(args: VerifyArgs) -> Result<(), Error> {
     }
 }
 
-fn verify_manifest(args: &VerifyArgs, bytes: &[u8], now: &EntangledTimestamp) -> Result<(), Error> {
+/// The verified-time reference for the canary and origin-expiry checks: the
+/// `--now` value when given (for reproducibility), otherwise the current system
+/// UTC clock. A real client uses its own trusted clock; defaulting to "now"
+/// avoids a stale fixed date silently passing an expired canary.
+fn resolve_now(arg: Option<&str>) -> Result<EntangledTimestamp, Error> {
+    match arg {
+        Some(s) => EntangledTimestamp::try_from(s)
+            .map_err(|e| format!("--now is not a valid RFC 3339 timestamp: {e}").into()),
+        None => {
+            let now = time::OffsetDateTime::now_utc();
+            // Format to the strict YYYY-MM-DDTHH:MM:SSZ shape the type accepts.
+            let s = format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+                now.year(),
+                u8::from(now.month()),
+                now.day(),
+                now.hour(),
+                now.minute(),
+                now.second(),
+            );
+            eprintln!("note: no --now given; using the current system clock ({s})");
+            EntangledTimestamp::try_from(s.as_str())
+                .map_err(|e| format!("internal: bad system timestamp {s}: {e}").into())
+        }
+    }
+}
+
+fn verify_manifest(
+    args: &VerifyArgs,
+    bytes: &[u8],
+    now: &EntangledTimestamp,
+) -> Result<Outcome, Error> {
+    // Stage 9b runs only inside Stage 9 (origin binding), which needs the
+    // fetched onion. Reject the misleading combination up front rather than
+    // silently ignoring --content-index.
+    if args.content_index.is_some() && args.fetched_onion.is_none() {
+        return Err(
+            "--content-index requires --fetched-onion: the content index check (Stage 9b) \
+             runs only after origin binding (Stage 9)"
+                .into(),
+        );
+    }
+
     // Stage 2-6: signature.
     let sig_verified = match parse_and_verify_manifest(bytes, now) {
         Ok(v) => v,
@@ -92,28 +129,28 @@ fn verify_manifest(args: &VerifyArgs, bytes: &[u8], now: &EntangledTimestamp) ->
     println!("verdict: accept");
     println!("canary_state: {canary_state:?}");
     report_skips(args);
-    Ok(())
+    Ok(Outcome::Success)
 }
 
-fn verify_content(args: &VerifyArgs, bytes: &[u8]) -> Result<(), Error> {
+fn verify_content(args: &VerifyArgs, bytes: &[u8]) -> Result<Outcome, Error> {
     let (runtime_pk, has_key) = runtime_key(args)?;
     match parse_and_verify_content(bytes, &runtime_pk) {
         Ok(_) => {
             println!("verdict: accept");
             print_runtime_note(has_key);
-            Ok(())
+            Ok(Outcome::Success)
         }
         Err(d) => report_reject(&d),
     }
 }
 
-fn verify_transaction(args: &VerifyArgs, bytes: &[u8]) -> Result<(), Error> {
+fn verify_transaction(args: &VerifyArgs, bytes: &[u8]) -> Result<Outcome, Error> {
     let (runtime_pk, has_key) = runtime_key(args)?;
     match parse_and_verify_transaction(bytes, &runtime_pk, None) {
         Ok(_) => {
             println!("verdict: accept");
             print_runtime_note(has_key);
-            Ok(())
+            Ok(Outcome::Success)
         }
         Err(d) => report_reject(&d),
     }
@@ -143,21 +180,23 @@ fn print_runtime_note(has_key: bool) {
     }
 }
 
-fn report_reject(diag: &Diagnostic) -> Result<(), Error> {
+fn report_reject(diag: &Diagnostic) -> Result<Outcome, Error> {
     println!("verdict: reject");
     println!("diagnostic: {}", diag.code);
     println!("stage: {}", diag.stage);
     println!("message: {}", diag.message);
-    Ok(())
+    Ok(Outcome::Rejected)
 }
 
 /// Print which optional manifest stages were skipped for lack of context, so an
 /// accept verdict is never mistaken for a full-pipeline pass.
 fn report_skips(args: &VerifyArgs) {
     if args.fetched_onion.is_none() {
-        println!("note: Stage 9 origin binding skipped (no --fetched-onion)");
-    }
-    if args.content_index.is_none() {
+        // Without the fetched onion, Stage 9 (and so Stage 9b) does not run.
+        println!(
+            "note: Stage 9 origin binding and Stage 9b content index skipped (no --fetched-onion)"
+        );
+    } else if args.content_index.is_none() {
         println!("note: Stage 9b content index skipped unless content_root forced a fetch failure (no --content-index)");
     }
 }

@@ -11,7 +11,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::cli::InitArgs;
-use crate::commands::Error;
+use crate::commands::{Error, Outcome};
 
 /// Starter unsigned-manifest template. Placeholders are spelled out so the
 /// publisher knows exactly which `keygen` output each field expects. It is not
@@ -39,9 +39,9 @@ const MANIFEST_TEMPLATE: &str = r#"{
 }
 "#;
 
-const README_TEMPLATE: &str = "# Entangled site\n\nScaffolded by entangled-tool. Next steps:\n\n1. Run `entangled-tool keygen publisher`, `keygen runtime`, and `keygen origin`; store the seeds offline.\n2. Fill the REPLACE_WITH_ placeholders in `manifest.unsigned.json` with the printed public keys and onion address, and set the canary and updated times.\n3. Sign it: `entangled-tool build manifest --input manifest.unsigned.json --key-seed-hex <publisher seed> --now <current time>`.\n4. Add content documents under `content/` and sign each with `build content`.\n";
+const README_TEMPLATE: &str = "# Entangled site\n\nScaffolded by entangled-tool. Next steps:\n\n1. Run `entangled-tool keygen publisher`, `keygen runtime`, and `keygen origin`; store each printed seed in a file (e.g. `publisher.seed`), kept offline with restrictive permissions.\n2. Fill the REPLACE_WITH_ placeholders in `manifest.unsigned.json` with the printed public keys and onion address, and set the canary and updated times.\n3. Sign it: `entangled-tool build manifest --input manifest.unsigned.json --key-seed-file publisher.seed --now <current time>`.\n4. Add content documents under `content/` and sign each with `build content --key-seed-file runtime.seed`.\n";
 
-pub fn run(args: InitArgs) -> Result<(), Error> {
+pub fn run(args: InitArgs) -> Result<Outcome, Error> {
     let dir = &args.dir;
     create_dir(dir)?;
     create_dir(&dir.join("content"))?;
@@ -55,7 +55,7 @@ pub fn run(args: InitArgs) -> Result<(), Error> {
     );
     println!("  content/                (add content documents here)");
     println!("  README.md               (next steps)");
-    Ok(())
+    Ok(Outcome::Success)
 }
 
 fn create_dir(path: &Path) -> Result<(), Error> {

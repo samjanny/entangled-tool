@@ -7,6 +7,7 @@ mod markdown;
 
 use clap::Parser;
 use cli::{Cli, Command};
+use commands::Outcome;
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
@@ -19,7 +20,10 @@ fn main() -> ExitCode {
         Command::Content(args) => commands::content::run(args),
     };
     match result {
-        Ok(()) => ExitCode::SUCCESS,
+        Ok(Outcome::Success) => ExitCode::SUCCESS,
+        // The command already printed the negative result (e.g. verify's
+        // `verdict: reject`); exit non-zero so callers can detect it.
+        Ok(Outcome::Rejected) => ExitCode::FAILURE,
         Err(e) => {
             eprintln!("error: {e}");
             ExitCode::FAILURE

@@ -15,9 +15,9 @@ use entangled_core::document::{
 use entangled_core::types::timestamp::EntangledTimestamp;
 
 use crate::cli::{BuildArgs, DocKind};
-use crate::commands::{resolve_seed, Error};
+use crate::commands::{resolve_seed, Error, Outcome};
 
-pub fn run(args: BuildArgs) -> Result<(), Error> {
+pub fn run(args: BuildArgs) -> Result<Outcome, Error> {
     let raw = std::fs::read(&args.input)
         .map_err(|e| format!("cannot read {}: {e}", args.input.display()))?;
     // A signing key is mandatory for build; no fresh-entropy fallback.
@@ -64,5 +64,5 @@ pub fn run(args: BuildArgs) -> Result<(), Error> {
     let text = String::from_utf8(signed_bytes)
         .map_err(|e| format!("internal: signed document is not UTF-8: {e}"))?;
     println!("{text}");
-    Ok(())
+    Ok(Outcome::Success)
 }

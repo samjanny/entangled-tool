@@ -1,7 +1,7 @@
 //! Subcommand implementations.
 //!
-//! Each module exposes a single `run(args) -> Result<(), Error>` entry point
-//! invoked by the dispatcher in `main`.
+//! Each module exposes a single `run(args) -> Result<Outcome, Error>` entry
+//! point invoked by the dispatcher in `main`.
 
 pub mod build;
 pub mod content;
@@ -16,6 +16,20 @@ use zeroize::Zeroizing;
 /// The error type returned by every subcommand. Boxed so a command can surface
 /// any underlying error (I/O, parsing, a core-library `Diagnostic`) uniformly.
 pub type Error = Box<dyn std::error::Error>;
+
+/// The outcome a subcommand reports to the process exit code. Distinct from
+/// `Err`: a command can complete normally (no internal error) yet report a
+/// negative result the caller must see - notably `verify` rejecting a document,
+/// which must not exit 0 so CI and scripts treat an invalid document as a
+/// failure.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+    /// The command did what it was asked; exit 0.
+    Success,
+    /// The command ran but the result is negative (e.g. verify rejected the
+    /// document). The command has already reported the details; exit non-zero.
+    Rejected,
+}
 
 /// A 32-byte key seed that is zeroed when dropped, so secret material does not
 /// linger in freed memory, swap, or a core dump.

@@ -374,8 +374,7 @@ impl Converter {
         // slash so '/assets/x.png' reads from '<base>/assets/x.png'.
         let rel = img.src.trim_start_matches('/');
         let file = self.assets_base.join(rel);
-        let bytes = std::fs::read(&file)
-            .map_err(|e| format!("cannot read image file {}: {e}", file.display()))?;
+        let bytes = read_image_file(&self.assets_base, &file)?;
 
         let media_type = image_media_type(&bytes)
             .ok_or_else(|| format!("{}: not a PNG, JPEG, or WebP image", file.display()))?;
@@ -481,6 +480,51 @@ fn link_target(dest: &str) -> Result<LinkTarget, Error> {
         )
         .into())
     }
+}
+
+/// The protocol's per-image response cap (section 03): an image resource must
+/// not exceed 2 MiB. The tool refuses larger files, both to match the protocol
+/// and to bound how much it reads from an untrusted repository.
+const IMAGE_MAX_BYTES: u64 = 2 * 1024 * 1024;
+
+/// Read an image file safely from under `base`. Hardens the read against a
+/// hostile repository:
+/// - the resolved path (after following symlinks) must stay inside `base`, so a
+///   symlink cannot redirect the read or the content hash outside the assets;
+/// - the target must be a regular file, not a symlink, FIFO, or device;
+/// - the file must not exceed the 2 MiB image cap.
+fn read_image_file(base: &Path, file: &Path) -> Result<Vec<u8>, Error> {
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| format!("cannot resolve assets directory {}: {e}", base.display()))?;
+    let canonical = file
+        .canonicalize()
+        .map_err(|e| format!("cannot resolve image file {}: {e}", file.display()))?;
+    if !canonical.starts_with(&canonical_base) {
+        return Err(format!(
+            "image file {} resolves outside the assets directory {}",
+            file.display(),
+            base.display()
+        )
+        .into());
+    }
+
+    let meta = std::fs::metadata(&canonical)
+        .map_err(|e| format!("cannot stat image file {}: {e}", file.display()))?;
+    if !meta.is_file() {
+        return Err(format!("image path {} is not a regular file", file.display()).into());
+    }
+    if meta.len() > IMAGE_MAX_BYTES {
+        return Err(format!(
+            "image file {} is {} bytes, over the {IMAGE_MAX_BYTES}-byte image cap",
+            file.display(),
+            meta.len()
+        )
+        .into());
+    }
+
+    std::fs::read(&canonical)
+        .map_err(|e| format!("cannot read image file {}: {e}", file.display()).into())
 }
 
 /// Detect the Entangled-supported media type from an image file's magic bytes.
@@ -628,6 +672,51 @@ mod tests {
     #[test]
     fn image_with_missing_file_errors() {
         assert!(to_blocks("![a](/nope.png)", Path::new("/nonexistent")).is_err());
+    }
+
+    const PNG_1X1: &[u8] = &[
+        0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44,
+        0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F,
+        0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00,
+        0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49,
+        0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+    ];
+
+    #[test]
+    #[cfg(unix)]
+    fn image_symlink_outside_base_rejected() {
+        // The site directory (the assets base) and a target that lives OUTSIDE
+        // it. A symlink under assets pointing at the outside target must be
+        // rejected.
+        let root = std::env::temp_dir().join("entangled-tool-img-symlink");
+        let site = root.join("site");
+        std::fs::create_dir_all(site.join("assets")).unwrap();
+        let outside = root.join("secret.png");
+        std::fs::write(&outside, PNG_1X1).unwrap();
+        let link = site.join("assets/x.png");
+        let _ = std::fs::remove_file(&link);
+        std::os::unix::fs::symlink(&outside, &link).unwrap();
+
+        let err = to_blocks("![a](/assets/x.png)", &site).unwrap_err();
+        assert!(
+            format!("{err}").contains("outside the assets directory"),
+            "got: {err}"
+        );
+        std::fs::remove_dir_all(&root).ok();
+    }
+
+    #[test]
+    fn image_over_size_cap_rejected() {
+        let dir = std::env::temp_dir().join("entangled-tool-img-big");
+        std::fs::create_dir_all(dir.join("assets")).unwrap();
+        // A PNG header followed by enough bytes to exceed the 2 MiB cap.
+        let mut big = PNG_1X1.to_vec();
+        big.resize(IMAGE_MAX_BYTES as usize + 1, 0);
+        std::fs::write(dir.join("assets/x.png"), &big).unwrap();
+
+        let err = to_blocks("![a](/assets/x.png)", &dir).unwrap_err();
+        assert!(format!("{err}").contains("image cap"), "got: {err}");
+        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]

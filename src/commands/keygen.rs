@@ -16,9 +16,9 @@ use entangled_core::crypto::{
 use entangled_core::types::manifest::OnionAddress;
 
 use crate::cli::{KeyRole, KeygenArgs};
-use crate::commands::{resolve_seed, seed_to_hex, Error};
+use crate::commands::{resolve_seed, seed_to_hex, Error, Outcome};
 
-pub fn run(args: KeygenArgs) -> Result<(), Error> {
+pub fn run(args: KeygenArgs) -> Result<Outcome, Error> {
     // A file or inline hex if supplied; otherwise fresh OS entropy.
     let seed = resolve_seed(
         args.seed_file.as_deref(),
@@ -57,5 +57,5 @@ pub fn run(args: KeygenArgs) -> Result<(), Error> {
             );
         }
     }
-    Ok(())
+    Ok(Outcome::Success)
 }

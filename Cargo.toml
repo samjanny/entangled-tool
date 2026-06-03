@@ -30,6 +30,9 @@ imagesize = "0.13"
 # linger in freed memory, swap, or a core dump. Already in the tree transitively
 # via ed25519-dalek; pinned here as a direct dependency.
 zeroize = "1"
+# Current UTC time for verify's default --now reference. Already in the tree
+# via entangled-core; pinned here for the system-clock default.
+time = { version = "0.3", default-features = false, features = ["std"] }
 
 [profile.release]
 strip = true
