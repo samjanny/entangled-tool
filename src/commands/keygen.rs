@@ -15,15 +15,17 @@ use entangled_core::crypto::{
 use entangled_core::types::manifest::OnionAddress;
 
 use crate::cli::{KeyRole, KeygenArgs};
-use crate::commands::{fresh_seed, seed_from_hex, seed_to_hex, Error};
+use crate::commands::{resolve_seed, seed_to_hex, Error};
 
 pub fn run(args: KeygenArgs) -> Result<(), Error> {
-    let seed = match args.seed_hex.as_deref() {
-        Some(hex) => seed_from_hex(hex)?,
-        None => fresh_seed()?,
-    };
+    // A file or inline hex if supplied; otherwise fresh OS entropy.
+    let seed = resolve_seed(args.seed_file.as_deref(), args.seed_hex.as_deref(), true)?;
 
-    println!("seed_hex: {}", seed_to_hex(&seed));
+    eprintln!(
+        "warning: the seed below is secret key material. Store it offline, and \
+         clear it from terminal scrollback and shell history."
+    );
+    println!("seed_hex: {}", &*seed_to_hex(&seed));
 
     match args.role {
         KeyRole::Publisher => {

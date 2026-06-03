@@ -255,6 +255,7 @@ dependencies = [
  "entangled-core",
  "getrandom",
  "serde_json",
+ "zeroize",
 ]
 
 [[package]]
