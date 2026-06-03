@@ -51,14 +51,16 @@ A manifest is driven through the full chain: signature (Stages 2-6), canary (Sta
 - `--now` sets the verified-time reference for the canary and origin-expiry checks (defaults to the corpus clock).
 - `--fetched-onion` is the onion address the manifest was fetched from; with it, Stage 9 origin binding runs. Omit to skip Stage 9.
 - `--content-index` is the served `/content_index.json`; when the manifest declares `content_root`, Stage 9b verifies it (and its absence with a declared `content_root` surfaces the fetch failure).
+- `--expected-runtime-pubkey` is the manifest's `canary.runtime_pubkey`; for a content or transaction document, it is the key the signature is checked against. Without it, a content/transaction has no authorized key and reports a signature rejection.
 
 Skipped stages are reported, so an accept is never mistaken for a full-pipeline pass.
 
 ```sh
 entangled-tool verify --input manifest.json --fetched-onion dkptfye...onion --content-index content_index.json
+entangled-tool verify --input post.json --expected-runtime-pubkey jzFtzi...F7o
 ```
 
-Content and transaction documents are verified through signature only here; their binding checks need the fetch path / submit body, which a future revision will accept.
+A content document is signed by a runtime key, and only the manifest declares which runtime key is authorized. So a content or transaction document is verified in the context of its manifest: pass `--expected-runtime-pubkey` to check its signature against the authorized key. See `examples/blog` for the full manifest-plus-content flow.
 
 ### `build <kind> --input <unsigned.json> (--key-seed-file <path> | --key-seed-hex <64 hex>) [--now <time>]`
 

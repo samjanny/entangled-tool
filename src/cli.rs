@@ -188,6 +188,14 @@ pub struct VerifyArgs {
     /// Manifest documents only.
     #[arg(long)]
     pub content_index: Option<std::path::PathBuf>,
+
+    /// The runtime public key (base64url) the manifest authorizes, i.e. its
+    /// canary.runtime_pubkey. Supply it to verify a content or transaction
+    /// document's signature in the context of its manifest. Without it, a
+    /// content/transaction is checked with no authorized key and reports a
+    /// signature rejection. Content and transaction documents only.
+    #[arg(long)]
+    pub expected_runtime_pubkey: Option<String>,
 }
 
 #[derive(Debug, clap::Args)]
