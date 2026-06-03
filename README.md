@@ -7,6 +7,7 @@ Publisher command-line tooling for the [Entangled v1.0](https://github.com/samja
 | Command | Status | Purpose |
 |---|---|---|
 | `keygen` | working | Key ceremony: derive public material for a role |
+| `content` | working | Convert Markdown into an unsigned content document |
 | `build` | working | Construct and sign a manifest, content, or transaction |
 | `verify` | working (Stage 6) | Run the validation pipeline against a document |
 | `init` | working | Scaffold a new site |
@@ -22,6 +23,21 @@ Generates a fresh 32-byte key seed, or loads one with `--seed-file` / `--seed-he
 ```sh
 entangled-tool keygen origin                          # fresh OS entropy
 entangled-tool keygen publisher --seed-file pub.seed  # load from a file
+```
+
+### `content --markdown <file.md> --path <path> --title <t> --published-at <time> [--seq <n>]`
+
+Converts a Markdown file into an unsigned content document (printed to stdout), ready to sign with `build content`. This saves you from hand-writing the nested block JSON.
+
+The Entangled block grammar is a closed set, so the converter maps the Markdown that fits and **rejects**, with a clear error, the Markdown that has no Entangled representation rather than dropping it silently:
+
+- **Mapped**: headings (levels 1-6), paragraphs, **bold** / *italic* / `inline code` / ~~strikethrough~~, fenced code blocks (with a language hint), block quotes, flat ordered and unordered lists, horizontal rules (dividers), and inline links. A link to an `https://` URL becomes a citation, to an absolute `/path` a same-site link, and to an `http://...onion` URL a carrier link.
+- **Rejected**: tables, nested lists, images, raw or inline HTML, footnotes, task lists, math, and headings past level 6. (Entangled images need a content hash and pixel dimensions Markdown cannot supply.)
+
+```sh
+entangled-tool content --markdown post.md --path /articles/my-post \
+  --title "My post" --published-at 2026-05-07T00:00:00Z > post.unsigned.json
+entangled-tool build content --input post.unsigned.json --key-seed-file runtime.seed > post.json
 ```
 
 ### `verify --input <document.json> [--now <time>] [--fetched-onion <addr>] [--content-index <path>]`

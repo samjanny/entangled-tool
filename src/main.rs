@@ -3,6 +3,7 @@
 
 mod cli;
 mod commands;
+mod markdown;
 
 use clap::Parser;
 use cli::{Cli, Command};
@@ -15,6 +16,7 @@ fn main() -> ExitCode {
         Command::Build(args) => commands::build::run(args),
         Command::Verify(args) => commands::verify::run(args),
         Command::Init(args) => commands::init::run(args),
+        Command::Content(args) => commands::content::run(args),
     };
     match result {
         Ok(()) => ExitCode::SUCCESS,

@@ -4,6 +4,7 @@
 //! invoked by the dispatcher in `main`.
 
 pub mod build;
+pub mod content;
 pub mod init;
 pub mod keygen;
 pub mod verify;
