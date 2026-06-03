@@ -1,0 +1,262 @@
+{
+  "spec_version": "1.0",
+  "path": "/articles/first",
+  "meta": {
+    "title": "A first post",
+    "published_at": "2026-05-07T00:00:00Z"
+  },
+  "blocks": [
+    {
+      "kind": "heading",
+      "level": 1,
+      "content": [
+        {
+          "kind": "text",
+          "value": "A first post",
+          "marks": []
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "content": [
+        {
+          "kind": "text",
+          "value": "This post exercises every Markdown construct the ",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": "content",
+          "marks": [
+            "code"
+          ]
+        },
+        {
+          "kind": "text",
+          "value": " command maps onto",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": " ",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": "the Entangled block grammar.",
+          "marks": []
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "content": [
+        {
+          "kind": "text",
+          "value": "It has ",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": "bold",
+          "marks": [
+            "bold"
+          ]
+        },
+        {
+          "kind": "text",
+          "value": ", ",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": "italic",
+          "marks": [
+            "italic"
+          ]
+        },
+        {
+          "kind": "text",
+          "value": ", ",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": "inline code",
+          "marks": [
+            "code"
+          ]
+        },
+        {
+          "kind": "text",
+          "value": ", and ",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": "strikethrough",
+          "marks": [
+            "strikethrough"
+          ]
+        },
+        {
+          "kind": "text",
+          "value": " text, plus a",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": " ",
+          "marks": []
+        },
+        {
+          "kind": "link",
+          "value": "citation link",
+          "marks": [],
+          "target": {
+            "kind": "citation",
+            "url": "https://example.org/source"
+          }
+        },
+        {
+          "kind": "text",
+          "value": " and a",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": " ",
+          "marks": []
+        },
+        {
+          "kind": "link",
+          "value": "same-site link",
+          "marks": [],
+          "target": {
+            "kind": "same_site",
+            "path": "/articles/another"
+          }
+        },
+        {
+          "kind": "text",
+          "value": ".",
+          "marks": []
+        }
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 2,
+      "content": [
+        {
+          "kind": "text",
+          "value": "A list",
+          "marks": []
+        }
+      ]
+    },
+    {
+      "kind": "list",
+      "ordered": false,
+      "items": [
+        [
+          {
+            "kind": "text",
+            "value": "first item",
+            "marks": []
+          }
+        ],
+        [
+          {
+            "kind": "text",
+            "value": "second item with ",
+            "marks": []
+          },
+          {
+            "kind": "text",
+            "value": "bold",
+            "marks": [
+              "bold"
+            ]
+          }
+        ],
+        [
+          {
+            "kind": "text",
+            "value": "third item",
+            "marks": []
+          }
+        ]
+      ]
+    },
+    {
+      "kind": "heading",
+      "level": 2,
+      "content": [
+        {
+          "kind": "text",
+          "value": "Some code",
+          "marks": []
+        }
+      ]
+    },
+    {
+      "kind": "code_block",
+      "language": "rust",
+      "content": "fn main() {\n    println!(\"hello, entangled\");\n}"
+    },
+    {
+      "kind": "quote",
+      "content": [
+        {
+          "kind": "text",
+          "value": "A short quotation on its own.",
+          "marks": []
+        }
+      ]
+    },
+    {
+      "kind": "paragraph",
+      "content": [
+        {
+          "kind": "text",
+          "value": "An image on its own line, whose hash and dimensions the tool reads from the",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": " ",
+          "marks": []
+        },
+        {
+          "kind": "text",
+          "value": "file:",
+          "marks": []
+        }
+      ]
+    },
+    {
+      "kind": "image",
+      "src": "/assets/photo.png",
+      "sha256": "sha-256:ARXonF6THTzsovEo925sAGM4duu5qavCCWjYjEPu5c4",
+      "media_type": "image/png",
+      "width": 16,
+      "height": 16,
+      "alt": "A small sample image"
+    },
+    {
+      "kind": "divider"
+    },
+    {
+      "kind": "paragraph",
+      "content": [
+        {
+          "kind": "text",
+          "value": "That divider above ends the post.",
+          "marks": []
+        }
+      ]
+    }
+  ]
+}
