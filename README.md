@@ -1,5 +1,11 @@
 # entangled-tool
 
+[![CI](https://github.com/samjanny/entangled-tool/actions/workflows/ci.yml/badge.svg)](https://github.com/samjanny/entangled-tool/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.3.0-blue)](https://github.com/samjanny/entangled-tool/releases)
+[![Spec](https://img.shields.io/badge/spec-v1.0--rc.48-blue)](https://github.com/samjanny/entangled)
+[![Rust](https://img.shields.io/badge/rust-1.88%2B-orange)](Cargo.toml)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue)](#license)
+
 Publisher command-line tooling for the [Entangled v1.0](https://github.com/samjanny/entangled) protocol, built on the [`entangled-core`](https://github.com/samjanny/entangled-api) library (pinned to tag `v0.10.0`, spec `v1.0-rc.48`).
 
 **New here?** [`examples/blog`](examples/blog) is a runnable, end-to-end walkthrough: it authors a post from Markdown, signs the content and the site manifest, and verifies both. It is the quickest way to see what the tool does and how the pieces fit together.
