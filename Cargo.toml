@@ -20,8 +20,12 @@ getrandom = "0.2"
 serde_json = "1"
 # CommonMark parser for the `content` command, which converts Markdown into the
 # Entangled closed block grammar. Markdown that has no Entangled representation
-# (tables, nested lists, images, raw HTML) is rejected, not silently dropped.
+# (tables, nested lists, raw HTML) is rejected, not silently dropped.
 pulldown-cmark = { version = "0.12", default-features = false }
+# Header-only image dimension reader: an image block needs width and height,
+# which the tool derives from the file rather than making the author hand-write
+# them. Reads image headers only; does not decode pixel data.
+imagesize = "0.13"
 # Zero secret key material (seeds and their hex form) on drop, so it does not
 # linger in freed memory, swap, or a core dump. Already in the tree transitively
 # via ed25519-dalek; pinned here as a direct dependency.

@@ -25,14 +25,16 @@ entangled-tool keygen origin                          # fresh OS entropy
 entangled-tool keygen publisher --seed-file pub.seed  # load from a file
 ```
 
-### `content --markdown <file.md> --path <path> --title <t> --published-at <time> [--seq <n>]`
+### `content --markdown <file.md> --path <path> --title <t> --published-at <time> [--seq <n>] [--assets-dir <dir>]`
 
 Converts a Markdown file into an unsigned content document (printed to stdout), ready to sign with `build content`. This saves you from hand-writing the nested block JSON.
 
 The Entangled block grammar is a closed set, so the converter maps the Markdown that fits and **rejects**, with a clear error, the Markdown that has no Entangled representation rather than dropping it silently:
 
-- **Mapped**: headings (levels 1-6), paragraphs, **bold** / *italic* / `inline code` / ~~strikethrough~~, fenced code blocks (with a language hint), block quotes, flat ordered and unordered lists, horizontal rules (dividers), and inline links. A link to an `https://` URL becomes a citation, to an absolute `/path` a same-site link, and to an `http://...onion` URL a carrier link.
-- **Rejected**: tables, nested lists, images, raw or inline HTML, footnotes, task lists, math, and headings past level 6. (Entangled images need a content hash and pixel dimensions Markdown cannot supply.)
+- **Mapped**: headings (levels 1-6), paragraphs, **bold** / *italic* / `inline code` / ~~strikethrough~~, fenced code blocks (with a language hint), block quotes, flat ordered and unordered lists, horizontal rules (dividers), inline links, and images on their own line. A link to an `https://` URL becomes a citation, to an absolute `/path` a same-site link, and to an `http://...onion` URL a carrier link.
+- **Rejected**: tables, nested lists, raw or inline HTML, footnotes, task lists, math, images mixed into a line of text, and headings past level 6.
+
+For an image `![alt](/assets/photo.png)` the tool keeps `/assets/photo.png` as the same-site `src` and reads the file to fill in the content hash, media type (PNG, JPEG, or WebP), and pixel dimensions, so you do not hand-write them. The file is read from `<assets-dir>/assets/photo.png`; `--assets-dir` defaults to the Markdown file's own directory, so keeping the post and its `assets/` folder together just works. The image must be on its own line (an Entangled image is a standalone block).
 
 ```sh
 entangled-tool content --markdown post.md --path /articles/my-post \

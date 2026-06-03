@@ -87,6 +87,12 @@ pub struct ContentArgs {
     /// indexed by a manifest content_root.
     #[arg(long)]
     pub seq: Option<u64>,
+
+    /// Directory that image same-site paths resolve against on disk. Defaults
+    /// to the Markdown file's own directory. An image `/assets/x.png` is read
+    /// from `<assets-dir>/assets/x.png`.
+    #[arg(long)]
+    pub assets_dir: Option<std::path::PathBuf>,
 }
 
 /// Which key role to operate on during a ceremony.

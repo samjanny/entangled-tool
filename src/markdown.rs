@@ -8,10 +8,14 @@
 //!
 //! Supported: headings (1-6), paragraphs, bold/italic/code/strikethrough,
 //! fenced code blocks, block quotes, flat ordered/unordered lists, dividers,
-//! and inline links. Rejected with a clear error: tables, nested lists,
-//! images, raw/inline HTML, footnotes, task lists, and headings past level 6.
+//! inline links, and images on their own line (the content hash, media type,
+//! and pixel dimensions are read from the file). Rejected with a clear error:
+//! tables, nested lists, raw/inline HTML, footnotes, task lists, images mixed
+//! into a line of text, and headings past level 6.
 
-use entangled_core::types::blocks::{Block, HeadingLevel};
+use std::path::Path;
+
+use entangled_core::types::blocks::{Block, HeadingLevel, ImageMediaType};
 use entangled_core::types::inline::{InlineContent, InlineElement, TextMark};
 use entangled_core::types::link::LinkTarget;
 use entangled_core::types::manifest::Carrier;
@@ -23,8 +27,16 @@ use crate::commands::Error;
 
 /// Parse `markdown` into a list of Entangled blocks, or return an error naming
 /// the first unsupported construct.
-pub fn to_blocks(markdown: &str) -> Result<Vec<Block>, Error> {
-    let mut conv = Converter::default();
+///
+/// `assets_base` is the directory image paths are resolved against: a Markdown
+/// image `![alt](/assets/x.png)` keeps `/assets/x.png` as its same-site `src`,
+/// and the file is read from `assets_base/assets/x.png` to derive the content
+/// hash and pixel dimensions.
+pub fn to_blocks(markdown: &str, assets_base: &Path) -> Result<Vec<Block>, Error> {
+    let mut conv = Converter {
+        assets_base: assets_base.to_path_buf(),
+        ..Converter::default()
+    };
     // Enable strikethrough (maps to the strikethrough mark). Tables, task
     // lists, and footnotes are also enabled, not to support them but so the
     // parser emits their events and the converter can reject them with a clear
@@ -43,6 +55,8 @@ pub fn to_blocks(markdown: &str) -> Result<Vec<Block>, Error> {
 /// Accumulating state while walking the Markdown event stream.
 #[derive(Default)]
 struct Converter {
+    /// Directory that image same-site paths are resolved against on disk.
+    assets_base: std::path::PathBuf,
     blocks: Vec<Block>,
     /// Inline run being built for the current leaf block (paragraph, heading,
     /// list item, quote).
@@ -58,6 +72,16 @@ struct Converter {
     /// While a link is open, its text accumulates here instead of in `inline`,
     /// so it does not consume the surrounding run.
     link_text: Option<InlineContent>,
+    /// While an image is open: its same-site `src` path and the alt text being
+    /// collected. An image must be the whole paragraph, so the surrounding
+    /// paragraph must otherwise be empty.
+    image: Option<ImageState>,
+}
+
+/// State for an image element open in the event stream.
+struct ImageState {
+    src: String,
+    alt: String,
 }
 
 /// Which leaf block the converter is currently filling.
@@ -150,11 +174,18 @@ impl Converter {
             Tag::Emphasis => self.push_mark(TextMark::Italic),
             Tag::Strong => self.push_mark(TextMark::Bold),
             Tag::Strikethrough => self.push_mark(TextMark::Strikethrough),
-            Tag::Image { .. } => Err(
-                "images are not supported here: an Entangled image block needs a same-site \
-                     path, a content hash, and pixel dimensions that Markdown cannot supply"
-                    .into(),
-            ),
+            Tag::Image { dest_url, .. } => {
+                // An Entangled image is a standalone block, so it must be the
+                // whole paragraph: the surrounding inline run must be empty.
+                if !self.inline.is_empty() {
+                    return Err("an image must be on its own line, not mixed with text".into());
+                }
+                self.image = Some(ImageState {
+                    src: dest_url.to_string(),
+                    alt: String::new(),
+                });
+                Ok(())
+            }
             Tag::Table(_) | Tag::TableHead | Tag::TableRow | Tag::TableCell => {
                 Err("tables are not supported; Entangled has no table block".into())
             }
@@ -223,6 +254,12 @@ impl Converter {
                 });
                 Ok(())
             }
+            TagEnd::Image => {
+                let img = self.image.take().ok_or("image end without a start")?;
+                let block = self.build_image_block(&img)?;
+                self.blocks.push(block);
+                Ok(())
+            }
             TagEnd::Emphasis => self.pop_mark(TextMark::Italic),
             TagEnd::Strong => self.pop_mark(TextMark::Bold),
             TagEnd::Strikethrough => self.pop_mark(TextMark::Strikethrough),
@@ -281,6 +318,11 @@ impl Converter {
     }
 
     fn text(&mut self, t: &str) -> Result<(), Error> {
+        if let Some(img) = self.image.as_mut() {
+            // Text inside an image is its alt text.
+            img.alt.push_str(t);
+            return Ok(());
+        }
         if let Some(Context::CodeBlock { content, .. }) = self.context.as_mut() {
             content.push_str(t);
             return Ok(());
@@ -318,6 +360,41 @@ impl Converter {
             Some(buf) => buf,
             None => &mut self.inline,
         }
+    }
+
+    /// Build an `Image` block from a Markdown image: keep the path as the
+    /// same-site `src`, read the file from `assets_base + path` to derive the
+    /// content hash, media type, and pixel dimensions, and use the Markdown alt
+    /// text as `alt`.
+    fn build_image_block(&self, img: &ImageState) -> Result<Block, Error> {
+        let src = EntangledPath::try_from(img.src.as_str())
+            .map_err(|e| format!("image path '{}' is not a same-site path: {e}", img.src))?;
+
+        // Resolve the same-site path against the assets base: drop the leading
+        // slash so '/assets/x.png' reads from '<base>/assets/x.png'.
+        let rel = img.src.trim_start_matches('/');
+        let file = self.assets_base.join(rel);
+        let bytes = std::fs::read(&file)
+            .map_err(|e| format!("cannot read image file {}: {e}", file.display()))?;
+
+        let media_type = image_media_type(&bytes)
+            .ok_or_else(|| format!("{}: not a PNG, JPEG, or WebP image", file.display()))?;
+        let dim = imagesize::blob_size(&bytes)
+            .map_err(|e| format!("cannot read image dimensions of {}: {e}", file.display()))?;
+        let width = u32::try_from(dim.width)
+            .map_err(|_| format!("{}: image width out of range", file.display()))?;
+        let height = u32::try_from(dim.height)
+            .map_err(|_| format!("{}: image height out of range", file.display()))?;
+
+        Ok(Block::Image {
+            src,
+            sha256: entangled_core::crypto::sha256_image(&bytes),
+            media_type,
+            width,
+            height,
+            alt: img.alt.clone(),
+            caption: None,
+        })
     }
 
     fn push_mark(&mut self, m: TextMark) -> Result<(), Error> {
@@ -406,12 +483,31 @@ fn link_target(dest: &str) -> Result<LinkTarget, Error> {
     }
 }
 
+/// Detect the Entangled-supported media type from an image file's magic bytes.
+/// Only PNG, JPEG, and WebP are valid in Entangled v1 (section 03).
+fn image_media_type(bytes: &[u8]) -> Option<ImageMediaType> {
+    if bytes.starts_with(&[0x89, b'P', b'N', b'G', 0x0D, 0x0A, 0x1A, 0x0A]) {
+        Some(ImageMediaType::Png)
+    } else if bytes.starts_with(&[0xFF, 0xD8, 0xFF]) {
+        Some(ImageMediaType::Jpeg)
+    } else if bytes.len() >= 12 && &bytes[0..4] == b"RIFF" && &bytes[8..12] == b"WEBP" {
+        Some(ImageMediaType::Webp)
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Convert with no real asset base (image tests set their own).
+    fn t(md: &str) -> Result<Vec<Block>, Error> {
+        to_blocks(md, Path::new("."))
+    }
+
     fn kinds(md: &str) -> Vec<&'static str> {
-        to_blocks(md)
+        t(md)
             .unwrap()
             .iter()
             .map(|b| match b {
@@ -444,7 +540,7 @@ mod tests {
 
     #[test]
     fn maps_marks() {
-        let blocks = to_blocks("**b** *i* `c` ~~s~~").unwrap();
+        let blocks = t("**b** *i* `c` ~~s~~").unwrap();
         let Block::Paragraph { content } = &blocks[0] else {
             panic!("expected paragraph");
         };
@@ -465,7 +561,7 @@ mod tests {
 
     #[test]
     fn two_links_stay_separate() {
-        let blocks = to_blocks("[a](https://x.org) and [b](/p)").unwrap();
+        let blocks = t("[a](https://x.org) and [b](/p)").unwrap();
         let Block::Paragraph { content } = &blocks[0] else {
             panic!();
         };
@@ -481,26 +577,66 @@ mod tests {
 
     #[test]
     fn rejects_table() {
-        assert!(to_blocks("| a | b |\n|---|---|\n| 1 | 2 |").is_err());
+        assert!(t("| a | b |\n|---|---|\n| 1 | 2 |").is_err());
     }
 
     #[test]
     fn rejects_nested_list() {
-        assert!(to_blocks("- a\n  - nested").is_err());
+        assert!(t("- a\n  - nested").is_err());
     }
 
     #[test]
-    fn rejects_image() {
-        assert!(to_blocks("![alt](/img.png)").is_err());
+    fn rejects_image_mixed_with_text() {
+        // An image must be on its own line, not inline with other text.
+        assert!(t("text ![alt](/img.png) more").is_err());
+    }
+
+    #[test]
+    fn image_on_its_own_line_reads_the_file() {
+        // A 1x1 PNG (the smallest valid PNG), written to a temp dir the
+        // converter resolves the same-site path against.
+        const PNG_1X1: &[u8] = &[
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48,
+            0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00,
+            0x00, 0x1F, 0x15, 0xC4, 0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78,
+            0x9C, 0x63, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+            0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
+        ];
+        let dir = std::env::temp_dir().join("entangled-tool-img-test");
+        std::fs::create_dir_all(dir.join("assets")).unwrap();
+        std::fs::write(dir.join("assets/x.png"), PNG_1X1).unwrap();
+
+        let blocks = to_blocks("![my alt](/assets/x.png)", &dir).unwrap();
+        let Block::Image {
+            width,
+            height,
+            media_type,
+            alt,
+            ..
+        } = &blocks[0]
+        else {
+            panic!("expected an image block, got {:?}", blocks[0]);
+        };
+        assert_eq!(*width, 1);
+        assert_eq!(*height, 1);
+        assert_eq!(*media_type, ImageMediaType::Png);
+        assert_eq!(alt, "my alt");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn image_with_missing_file_errors() {
+        assert!(to_blocks("![a](/nope.png)", Path::new("/nonexistent")).is_err());
     }
 
     #[test]
     fn rejects_html() {
-        assert!(to_blocks("<div>x</div>").is_err());
+        assert!(t("<div>x</div>").is_err());
     }
 
     #[test]
     fn rejects_empty() {
-        assert!(to_blocks("   \n").is_err());
+        assert!(t("   \n").is_err());
     }
 }
