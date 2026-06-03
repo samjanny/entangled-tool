@@ -12,10 +12,10 @@ use entangled_core::types::path::EntangledPath;
 use entangled_core::types::timestamp::EntangledTimestamp;
 
 use crate::cli::ContentArgs;
-use crate::commands::Error;
+use crate::commands::{Error, Outcome};
 use crate::markdown;
 
-pub fn run(args: ContentArgs) -> Result<(), Error> {
+pub fn run(args: ContentArgs) -> Result<Outcome, Error> {
     let source = std::fs::read_to_string(&args.markdown)
         .map_err(|e| format!("cannot read {}: {e}", args.markdown.display()))?;
 
@@ -51,5 +51,5 @@ pub fn run(args: ContentArgs) -> Result<(), Error> {
     let json = serde_json::to_string_pretty(&doc)
         .map_err(|e| format!("failed to serialize the content document: {e}"))?;
     println!("{json}");
-    Ok(())
+    Ok(Outcome::Success)
 }
