@@ -39,8 +39,8 @@ pub fn run(args: VerifyArgs) -> Result<(), Error> {
     let kind = document_kind(&bytes)?;
     match kind.as_str() {
         "manifest" => verify_manifest(&args, &bytes, &now),
-        "content" => verify_content(&bytes),
-        "transaction" => verify_transaction(&bytes),
+        "content" => verify_content(&args, &bytes),
+        "transaction" => verify_transaction(&args, &bytes),
         other => Err(format!("unsupported document kind: {other}").into()),
     }
 }
@@ -95,30 +95,51 @@ fn verify_manifest(args: &VerifyArgs, bytes: &[u8], now: &EntangledTimestamp) ->
     Ok(())
 }
 
-fn verify_content(bytes: &[u8]) -> Result<(), Error> {
-    // No verified manifest is available at the CLI to supply the authorized
-    // runtime key, so signature verification reaches Stage 6 with no key and
-    // reports E_SIG_INVALID_KEY. A future revision will accept the manifest.
-    let placeholder = RuntimePubkey::from_bytes([0u8; 32]);
-    match parse_and_verify_content(bytes, &placeholder) {
+fn verify_content(args: &VerifyArgs, bytes: &[u8]) -> Result<(), Error> {
+    let (runtime_pk, has_key) = runtime_key(args)?;
+    match parse_and_verify_content(bytes, &runtime_pk) {
         Ok(_) => {
             println!("verdict: accept");
-            println!("note: signature only; supply the authorizing manifest for full verification");
+            print_runtime_note(has_key);
             Ok(())
         }
         Err(d) => report_reject(&d),
     }
 }
 
-fn verify_transaction(bytes: &[u8]) -> Result<(), Error> {
-    let placeholder = RuntimePubkey::from_bytes([0u8; 32]);
-    match parse_and_verify_transaction(bytes, &placeholder, None) {
+fn verify_transaction(args: &VerifyArgs, bytes: &[u8]) -> Result<(), Error> {
+    let (runtime_pk, has_key) = runtime_key(args)?;
+    match parse_and_verify_transaction(bytes, &runtime_pk, None) {
         Ok(_) => {
             println!("verdict: accept");
-            println!("note: signature only; supply the authorizing manifest for full verification");
+            print_runtime_note(has_key);
             Ok(())
         }
         Err(d) => report_reject(&d),
+    }
+}
+
+/// Resolve the runtime key to verify a content/transaction signature against:
+/// the manifest-authorized key from `--expected-runtime-pubkey` when given, or
+/// a placeholder otherwise (in which case the signature check has no authorized
+/// key and will reject). Returns the key and whether a real one was supplied.
+fn runtime_key(args: &VerifyArgs) -> Result<(RuntimePubkey, bool), Error> {
+    match args.expected_runtime_pubkey.as_deref() {
+        Some(b64) => {
+            let key = RuntimePubkey::try_from(b64)
+                .map_err(|e| format!("--expected-runtime-pubkey is invalid: {e}"))?;
+            Ok((key, true))
+        }
+        None => Ok((RuntimePubkey::from_bytes([0u8; 32]), false)),
+    }
+}
+
+fn print_runtime_note(has_key: bool) {
+    if !has_key {
+        println!(
+            "note: no authorizing runtime key given; pass --expected-runtime-pubkey \
+             (the manifest's canary.runtime_pubkey) to verify against the manifest"
+        );
     }
 }
 
