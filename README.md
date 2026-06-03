@@ -2,6 +2,8 @@
 
 Publisher command-line tooling for the [Entangled v1.0](https://github.com/samjanny/entangled) protocol, built on the [`entangled-core`](https://github.com/samjanny/entangled-api) library (pinned to tag `v0.10.0`, spec `v1.0-rc.48`).
 
+**New here?** [`examples/blog`](examples/blog) is a runnable, end-to-end walkthrough: it authors a post from Markdown, signs the content and the site manifest, and verifies both. It is the quickest way to see what the tool does and how the pieces fit together.
+
 ## Subcommands
 
 | Command | Status | Purpose |
@@ -9,7 +11,7 @@ Publisher command-line tooling for the [Entangled v1.0](https://github.com/samja
 | `keygen` | working | Key ceremony: derive public material for a role |
 | `content` | working | Convert Markdown into an unsigned content document |
 | `build` | working | Construct and sign a manifest, content, or transaction |
-| `verify` | working (Stage 6) | Run the validation pipeline against a document |
+| `verify` | working | Run the validation pipeline against a document |
 | `init` | working | Scaffold a new site |
 
 ### `keygen <role> [--seed-file <path>] [--seed-hex <64 hex>]`
