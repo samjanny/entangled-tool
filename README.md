@@ -59,7 +59,7 @@ A manifest is driven through the full chain: signature (Stages 2-6), canary (Sta
 - `--now` sets the verified-time reference for the canary and origin-expiry checks (defaults to the current system clock).
 - `--fetched-onion` is the onion address the manifest was fetched from; with it, Stage 9 origin binding runs. Omit to skip Stage 9.
 - `--content-index` is the served `/content_index.json`; when the manifest declares `content_root`, Stage 9b verifies it (and its absence with a declared `content_root` surfaces the fetch failure).
-- `--expected-runtime-pubkey` is the manifest's `canary.runtime_pubkey`; for a content or transaction document, it is the key the signature is checked against. Without it, a content/transaction has no authorized key and reports a signature rejection.
+- `--expected-runtime-pubkey` is the manifest's `canary.runtime_pubkey`; for a content or transaction document, it is the key the signature is checked against. Without it, there is no authorized key and the document is rejected with `E_SIG_INVALID_KEY` (distinct from `E_SIG_VERIFICATION`, a bad signature).
 
 Skipped stages are reported, so an accept is never mistaken for a full-pipeline pass.
 

@@ -19,7 +19,7 @@ use entangled_core::document::{
 use entangled_core::types::keys::RuntimePubkey;
 use entangled_core::types::manifest::OnionAddress;
 use entangled_core::types::timestamp::EntangledTimestamp;
-use entangled_core::validation::Diagnostic;
+use entangled_core::validation::{Diagnostic, DiagnosticCode, DocumentKindLabel};
 
 use crate::cli::VerifyArgs;
 use crate::commands::{Error, Outcome};
@@ -133,11 +133,13 @@ fn verify_manifest(
 }
 
 fn verify_content(args: &VerifyArgs, bytes: &[u8]) -> Result<Outcome, Error> {
-    let (runtime_pk, has_key) = runtime_key(args)?;
+    let runtime_pk = match runtime_key(args)? {
+        Some(k) => k,
+        None => return report_reject(&no_runtime_key(DocumentKindLabel::Content)),
+    };
     match parse_and_verify_content(bytes, &runtime_pk) {
         Ok(_) => {
             println!("verdict: accept");
-            print_runtime_note(has_key);
             Ok(Outcome::Success)
         }
         Err(d) => report_reject(&d),
@@ -145,39 +147,43 @@ fn verify_content(args: &VerifyArgs, bytes: &[u8]) -> Result<Outcome, Error> {
 }
 
 fn verify_transaction(args: &VerifyArgs, bytes: &[u8]) -> Result<Outcome, Error> {
-    let (runtime_pk, has_key) = runtime_key(args)?;
+    let runtime_pk = match runtime_key(args)? {
+        Some(k) => k,
+        None => return report_reject(&no_runtime_key(DocumentKindLabel::Transaction)),
+    };
     match parse_and_verify_transaction(bytes, &runtime_pk, None) {
         Ok(_) => {
             println!("verdict: accept");
-            print_runtime_note(has_key);
             Ok(Outcome::Success)
         }
         Err(d) => report_reject(&d),
     }
 }
 
-/// Resolve the runtime key to verify a content/transaction signature against:
-/// the manifest-authorized key from `--expected-runtime-pubkey` when given, or
-/// a placeholder otherwise (in which case the signature check has no authorized
-/// key and will reject). Returns the key and whether a real one was supplied.
-fn runtime_key(args: &VerifyArgs) -> Result<(RuntimePubkey, bool), Error> {
+/// The manifest-authorized runtime key from `--expected-runtime-pubkey`, or
+/// `None` when it was not supplied. `None` is not a signature failure: there is
+/// no key to verify against, reported as `E_SIG_INVALID_KEY` so automation can
+/// tell "no manifest context" apart from "bad signature".
+fn runtime_key(args: &VerifyArgs) -> Result<Option<RuntimePubkey>, Error> {
     match args.expected_runtime_pubkey.as_deref() {
         Some(b64) => {
             let key = RuntimePubkey::try_from(b64)
                 .map_err(|e| format!("--expected-runtime-pubkey is invalid: {e}"))?;
-            Ok((key, true))
+            Ok(Some(key))
         }
-        None => Ok((RuntimePubkey::from_bytes([0u8; 32]), false)),
+        None => Ok(None),
     }
 }
 
-fn print_runtime_note(has_key: bool) {
-    if !has_key {
-        println!(
-            "note: no authorizing runtime key given; pass --expected-runtime-pubkey \
-             (the manifest's canary.runtime_pubkey) to verify against the manifest"
-        );
-    }
+/// The diagnostic for "no authorized runtime key available", per section 11:
+/// distinct from a signature that decoded but failed to verify.
+fn no_runtime_key(kind: DocumentKindLabel) -> Diagnostic {
+    Diagnostic::new(
+        DiagnosticCode::ESigInvalidKey,
+        kind,
+        "no authorizing runtime key available; pass --expected-runtime-pubkey \
+         (the manifest's canary.runtime_pubkey) to verify against the manifest",
+    )
 }
 
 fn report_reject(diag: &Diagnostic) -> Result<Outcome, Error> {

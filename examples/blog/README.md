@@ -75,10 +75,12 @@ Steps 5 and 6 both report `accept`; step 5 also prints `canary_state: Fresh`.
 A content document carries no key of its own: it is signed by a runtime key, and
 only the manifest says which runtime key is authorized (its
 `canary.runtime_pubkey`). So verifying `post.json` standalone, without
-`--expected-runtime-pubkey`, reports a signature rejection - there is no
-authorized key to check against. That is the whole point of the manifest:
-identity and authorization live there, not in the individual document. This is
-also where the canary, origin binding, and content-index checks run.
+`--expected-runtime-pubkey`, is rejected with `E_SIG_INVALID_KEY` - there is no
+authorized key to check against. (This is distinct from `E_SIG_VERIFICATION`, an
+actual bad signature, so automation can tell the two apart.) That is the whole
+point of the manifest: identity and authorization live there, not in the
+individual document. This is also where the canary, origin binding, and
+content-index checks run.
 
 ## What gets rejected
 
