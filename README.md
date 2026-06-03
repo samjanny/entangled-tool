@@ -24,11 +24,23 @@ entangled-tool keygen origin
 entangled-tool keygen publisher --seed-hex 454e54...
 ```
 
-### `verify --input <document.json>`
+### `verify --input <document.json> [--now <time>] [--fetched-onion <addr>] [--content-index <path>]`
 
-Runs the document through the `entangled-core` pipeline and prints the verdict. A reject prints the diagnostic code, stage, and message.
+Runs the document through the `entangled-core` pipeline and prints the verdict, stopping at the first failing stage. A reject prints the diagnostic code, stage, and message; an accept prints the canary state.
 
-Current scope: verifies a manifest through signature (Stage 6). The canary, origin-binding, and content-index stages need out-of-band context (the fetched onion address, the served index bytes) and are skipped until the command accepts them as flags.
+A manifest is driven through the full chain: signature (Stages 2-6), canary (Stage 8), origin binding (Stage 9), and content index (Stage 9b). The stages that need out-of-band context run only when it is supplied:
+
+- `--now` sets the verified-time reference for the canary and origin-expiry checks (defaults to the corpus clock).
+- `--fetched-onion` is the onion address the manifest was fetched from; with it, Stage 9 origin binding runs. Omit to skip Stage 9.
+- `--content-index` is the served `/content_index.json`; when the manifest declares `content_root`, Stage 9b verifies it (and its absence with a declared `content_root` surfaces the fetch failure).
+
+Skipped stages are reported, so an accept is never mistaken for a full-pipeline pass.
+
+```sh
+entangled-tool verify --input manifest.json --fetched-onion dkptfye...onion --content-index content_index.json
+```
+
+Content and transaction documents are verified through signature only here; their binding checks need the fetch path / submit body, which a future revision will accept.
 
 ### `build <kind> --input <unsigned.json> --key-seed-hex <64 hex> [--now <time>]`
 

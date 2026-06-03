@@ -88,6 +88,26 @@ pub struct VerifyArgs {
     /// Path to the document JSON to verify.
     #[arg(long)]
     pub input: std::path::PathBuf,
+
+    /// Verified-time reference for the canary and origin-expiry checks,
+    /// RFC 3339 (YYYY-MM-DDTHH:MM:SSZ). A real client supplies its trusted
+    /// wall clock. Defaults to the corpus clock if omitted.
+    #[arg(long)]
+    pub now: Option<String>,
+
+    /// The Tor v3 onion address the manifest was fetched from. When given,
+    /// Stage 9 origin binding runs (the address must derive to the manifest's
+    /// origin_pubkey and the origin must not be expired). Omit to skip Stage 9.
+    /// Manifest documents only.
+    #[arg(long)]
+    pub fetched_onion: Option<String>,
+
+    /// Path to the served /content_index.json bytes. When the manifest declares
+    /// content_root, Stage 9b verifies the index against it. Omit to skip
+    /// Stage 9b (or, if content_root is declared, to surface the fetch failure).
+    /// Manifest documents only.
+    #[arg(long)]
+    pub content_index: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, clap::Args)]
