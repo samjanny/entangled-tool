@@ -59,6 +59,34 @@ pub enum Command {
 
     /// Scaffold a new Entangled site (initial manifest and directory layout).
     Init(InitArgs),
+
+    /// Convert a Markdown file into an unsigned content document (ready for
+    /// `build content`).
+    Content(ContentArgs),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct ContentArgs {
+    /// Path to the Markdown source file.
+    #[arg(long)]
+    pub markdown: std::path::PathBuf,
+
+    /// The content document path on the site (e.g. /articles/my-post).
+    #[arg(long)]
+    pub path: String,
+
+    /// Document title (meta.title).
+    #[arg(long)]
+    pub title: String,
+
+    /// Publication time, RFC 3339 (meta.published_at).
+    #[arg(long)]
+    pub published_at: String,
+
+    /// Optional content sequence number (seq), required only when the path is
+    /// indexed by a manifest content_root.
+    #[arg(long)]
+    pub seq: Option<u64>,
 }
 
 /// Which key role to operate on during a ceremony.
